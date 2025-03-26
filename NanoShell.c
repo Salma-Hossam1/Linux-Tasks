@@ -170,13 +170,32 @@ int main() {
 
 	//handle environment variables
 	if(strcmp(newargv[0], "export") == 0){
-		for(int i=1 ;newargv[i] != NULL ; i++){
-		 if(putenv(newargv[i]) != 0){
-		   perror("error in exporting variable");
-		   }
-		}
-	  continue;
-	}
+        for(int i=1 ;newargv[i] != NULL ; i++){
+
+            // Check if the variable is local
+            for (int inner_counter = 0; inner_counter < Local_Counter; inner_counter++) {
+                if (strcmp(Local_VAR[inner_counter].key, newargv[i]) == 0) {
+                    int len = strlen(newargv[i]) + strlen(Local_VAR[inner_counter].value) + 2;
+                    char *expression_concat = malloc(len); 
+                    if (!expression_concat) {
+                        perror("Memory allocation failed");
+                        exit(-1);
+                    }
+                    // We want to det that exp : KEY=VALUE
+                    strcpy(expression_concat, newargv[i]); 
+                    strcat(expression_concat, "="); 
+                    strcat(expression_concat, Local_VAR[inner_counter].value); 
+                    newargv[i] = expression_concat; 
+                    break;
+                }
+            }
+    
+            if (putenv(newargv[i]) != 0) {
+                perror("Error in exporting variable");
+            }
+        }
+        continue;
+    }
 	
 	if(strcmp(newargv[0], "unset") == 0){
                 for(int i=1 ;newargv[i] != NULL ; i++){
@@ -188,17 +207,37 @@ int main() {
           continue;
         }
 
-	// if(strcmp(newargv[0] ,"printev")){
-	//   for(int i=1 ; newargv[i] != NULL ; i++){
-	//     if(getenv(newargv[i] !=NULL )){
-	//          printf("%s\t",getenv(newargv[i]));
-	// 		    }
+	//Replace $ sign
+	for (int i = 1; newargv[i] != NULL; i++) {
+        for(int k=0 ; newargv[i][k] != '\0' ; k++){
+                    if(newargv[i][k]== '$' )
+                    {
+                        char *name = newargv[i]+k+1;
+                        int found =0;
+                        for(int j=0;j <Local_Counter ;j++)
+                         {
+                           if(strcmp(Local_VAR[j].key ,name) == 0)
+                           {
+                             strcpy(newargv[i]+k,Local_VAR[j].value);
+                             found =1;
+                             break;
+                           }
+                         }
+                         if (!found) {
+                            char *env_value = getenv(name);
+                            if (env_value) {
+                                strcpy(newargv[i]+k, env_value);
+                                found =1;
+                            }
+                        }
+                        if (!found) {
+                            strcpy(newargv[i]+k, " ");
+                    }
+                    }
+               }
+            }
 
-	// 		    }
-	//    continue;
-	//   }
 
-	// 		}
         // Built-in cd
         if (strcmp(newargv[0], "cd") == 0) {
             const char *dir = newargv[1] ;
@@ -212,32 +251,10 @@ int main() {
         // Built-in echo
         if (strcmp(newargv[0], "echo") == 0) {
             for (int i = 1; newargv[i] != NULL; i++) {
-		    if(newargv[i][0]== '$')
-		    {
-			char *name = newargv[i]+1;
-			int found =0;
-			for(int j=0;j <Local_Counter ;j++)
-			 {
-		           if(strcmp(Local_VAR[j].key ,name) == 0)
-			   {
-			     printf("%s ", Local_VAR[j].value);
-			     found =1;
-			     break;
-			   }
-			 }
-			if(!found) //search in environment variable
-		            {
-                           if(newargv[i] != NULL && getenv(name) !=NULL ){
-                            printf("%s ",getenv(name));
-                            found =1;
+		     
+			printf("%s ", newargv[i]);
 
-                            }
-			    }
-			    }
-			    else 
-			{printf("%s ", newargv[i]);}
-
-            }
+                }
             printf("\n");
             free(buf);
             continue;
